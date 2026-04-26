@@ -7,6 +7,7 @@ import './index.css';
 function App() {
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, 'driver_applications'), (snapshot) => {
@@ -21,10 +22,16 @@ function App() {
     return () => unsubscribe();
   }, []);
 
-  const handleStatusChange = async (id, status) => {
+  const handleStatusChange = async (app, status) => {
     try {
-      const appRef = doc(db, 'driver_applications', id);
+      const appRef = doc(db, 'driver_applications', app.id);
       await updateDoc(appRef, { status });
+      
+      // Update the user document to make them an active driver
+      if (status === 'approved' && app.uid) {
+        const userRef = doc(db, 'users', app.uid);
+        await updateDoc(userRef, { status: 'approved', role: 'driver' });
+      }
     } catch (error) {
       console.error("Error updating status: ", error);
       alert("حدث خطأ أثناء تحديث الحالة. تأكد من إعدادات Firestore (Rules).");
@@ -32,17 +39,24 @@ function App() {
   };
 
   const getStatusBadge = (status) => {
-    switch (status) {
-      case 'PENDING':
+    switch (status?.toLowerCase()) {
+      case 'pending':
         return <span className="badge badge-warning"><Clock size={16} className="mr-1" /> قيد المراجعة</span>;
-      case 'APPROVED':
+      case 'approved':
         return <span className="badge badge-success"><CheckCircle size={16} className="mr-1" /> مقبول</span>;
-      case 'REJECTED':
+      case 'rejected':
         return <span className="badge badge-error"><XCircle size={16} className="mr-1" /> مرفوض</span>;
       default:
         return <span className="badge">{status}</span>;
     }
   };
+
+  const filteredApps = applications.filter(app => {
+    const term = searchTerm.toLowerCase();
+    return (app.fullName?.toLowerCase().includes(term)) ||
+           (app.phoneNumber?.includes(term)) ||
+           (app.licensePlate?.toLowerCase().includes(term));
+  });
 
   return (
     <div className="admin-container">
@@ -63,12 +77,22 @@ function App() {
             </div>
             <div className="stat-card pending">
               <h3>قيد المراجعة</h3>
-              <p>{applications.filter(a => a.status === 'PENDING').length}</p>
+              <p>{applications.filter(a => a.status?.toLowerCase() === 'pending').length}</p>
             </div>
             <div className="stat-card approved">
               <h3>مقبول</h3>
-              <p>{applications.filter(a => a.status === 'APPROVED').length}</p>
+              <p>{applications.filter(a => a.status?.toLowerCase() === 'approved').length}</p>
             </div>
+          </div>
+          
+          <div className="search-bar" style={{ marginTop: '20px' }}>
+            <input 
+              type="text" 
+              placeholder="ابحث بالاسم، رقم الهاتف، أو رقم اللوحة..." 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #ccc', fontSize: '16px' }}
+            />
           </div>
         </section>
 
@@ -83,7 +107,7 @@ function App() {
           </div>
         ) : (
           <div className="grid">
-            {applications.map(app => (
+            {filteredApps.map(app => (
               <div key={app.id} className="card">
                 <div className="card-header">
                   <div className="driver-info-header">
@@ -109,25 +133,24 @@ function App() {
                   <div className="info-row label-plate">
                     <span className="plate-box">{app.licensePlate || 'غير متوفر'}</span>
                   </div>
-                  {app.frontIdImageUri && (
-                    <div className="attachment">
-                      <a href={app.frontIdImageUri} target="_blank" rel="noopener noreferrer">عرض صورة الهوية</a>
-                    </div>
-                  )}
+                  <div className="documents">
+                    {app.licenseImageUrl && <a href={app.licenseImageUrl} target="_blank" rel="noreferrer" className="doc-link">رخصة السياقة</a>}
+                    {app.idImageUrl && <a href={app.idImageUrl} target="_blank" rel="noreferrer" className="doc-link">بطاقة الهوية</a>}
+                  </div>
                 </div>
 
                 <div className="card-actions">
                   <button 
                     className="btn btn-success" 
-                    disabled={app.status === 'APPROVED'}
-                    onClick={() => handleStatusChange(app.id, 'APPROVED')}
+                    disabled={app.status?.toLowerCase() === 'approved'}
+                    onClick={() => handleStatusChange(app, 'approved')}
                   >
                     <CheckCircle size={18} /> قبول
                   </button>
                   <button 
                     className="btn btn-danger"
-                    disabled={app.status === 'REJECTED'}
-                    onClick={() => handleStatusChange(app.id, 'REJECTED')}
+                    disabled={app.status?.toLowerCase() === 'rejected'}
+                    onClick={() => handleStatusChange(app, 'rejected')}
                   >
                     <XCircle size={18} /> رفض
                   </button>

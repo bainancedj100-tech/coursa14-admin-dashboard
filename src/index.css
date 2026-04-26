@@ -175,7 +175,14 @@ body {
   border: 2px solid #000;
 }
 
-.attachment a {
+.documents {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.doc-link {
   color: var(--primary-color);
   text-decoration: none;
   font-size: 0.9rem;
@@ -186,7 +193,7 @@ body {
   transition: background-color 0.2s;
 }
 
-.attachment a:hover {
+.doc-link:hover {
   background-color: rgba(205, 220, 57, 0.2);
 }
 
