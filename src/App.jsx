@@ -1,16 +1,35 @@
 import React, { useEffect, useState } from 'react';
 import { collection, onSnapshot, doc, updateDoc } from 'firebase/firestore';
-import { db } from './firebase';
-import { CheckCircle, XCircle, Clock, User, CarFront, Phone, Loader2 } from 'lucide-react';
+import { signInWithEmailAndPassword, onAuthStateChanged, signOut } from 'firebase/auth';
+import { db, auth } from './firebase';
+import { CheckCircle, XCircle, Clock, User, CarFront, Phone, Loader2, LogOut } from 'lucide-react';
 import './index.css';
 
 function App() {
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  
+  // Auth states
+  const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loginError, setLoginError] = useState("");
 
   useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, 'driver_applications'), (snapshot) => {
+    const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setAuthLoading(false);
+    });
+    return () => unsubscribeAuth();
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    
+    setLoading(true);
+    const unsubscribeData = onSnapshot(collection(db, 'driver_applications'), (snapshot) => {
       const appsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setApplications(appsData);
       setLoading(false);
@@ -19,8 +38,27 @@ function App() {
       setLoading(false);
     });
 
-    return () => unsubscribe();
-  }, []);
+    return () => unsubscribeData();
+  }, [user]);
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setLoginError("");
+    try {
+      if (email !== 'admin@coursa14.com') {
+        setLoginError("هذا الحساب ليس لديه صلاحيات الإدارة");
+        return;
+      }
+      await signInWithEmailAndPassword(auth, email, password);
+    } catch (err) {
+      setLoginError("البريد الإلكتروني أو كلمة المرور غير صحيحة");
+      console.error(err);
+    }
+  };
+
+  const handleLogout = () => {
+    signOut(auth);
+  };
 
   const handleStatusChange = async (app, status) => {
     try {
@@ -58,6 +96,55 @@ function App() {
            (app.licensePlate?.toLowerCase().includes(term));
   });
 
+  if (authLoading) {
+    return (
+      <div className="admin-container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <Loader2 className="spinner" size={48} />
+      </div>
+    );
+  }
+
+  if (!user || user.email !== 'admin@coursa14.com') {
+    return (
+      <div className="login-container">
+        <div className="login-box">
+          <div className="logo-section text-center mb-4">
+            <h1 style={{ color: 'var(--primary-color)', fontSize: '2rem', marginBottom: '0.5rem' }}>Coursa14 Admin</h1>
+            <p style={{ color: 'var(--text-secondary)' }}>تسجيل الدخول للإدارة</p>
+          </div>
+          <form onSubmit={handleLogin}>
+            <div className="form-group">
+              <label>البريد الإلكتروني</label>
+              <input 
+                type="email" 
+                value={email} 
+                onChange={(e) => setEmail(e.target.value)} 
+                required 
+                className="form-control"
+                placeholder="admin@coursa14.com"
+              />
+            </div>
+            <div className="form-group" style={{ marginTop: '1rem' }}>
+              <label>كلمة المرور</label>
+              <input 
+                type="password" 
+                value={password} 
+                onChange={(e) => setPassword(e.target.value)} 
+                required 
+                className="form-control"
+                placeholder="••••••••"
+              />
+            </div>
+            {loginError && <p className="error-text" style={{ color: 'var(--danger)', marginTop: '1rem', fontSize: '0.9rem' }}>{loginError}</p>}
+            <button type="submit" className="btn btn-success" style={{ width: '100%', marginTop: '1.5rem', padding: '12px' }}>
+              دخول
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="admin-container">
       <header className="header">
@@ -65,6 +152,9 @@ function App() {
           <h1>Coursa14 Admin Panel</h1>
           <p>لوحة تحكم مدير التطبيق - إدارة السائقين</p>
         </div>
+        <button onClick={handleLogout} className="btn btn-danger" style={{ padding: '8px 16px', fontSize: '0.9rem' }}>
+          <LogOut size={16} /> تسجيل الخروج
+        </button>
       </header>
 
       <main className="main-content">
