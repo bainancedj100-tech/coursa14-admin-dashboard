@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { collection, onSnapshot, doc, updateDoc } from 'firebase/firestore';
+import { collection, onSnapshot, doc, updateDoc, setDoc } from 'firebase/firestore';
 import { signInWithEmailAndPassword, onAuthStateChanged, signOut } from 'firebase/auth';
 import { db, auth } from './firebase';
 import { CheckCircle, XCircle, Clock, User, CarFront, Phone, Loader2, LogOut } from 'lucide-react';
@@ -74,7 +74,7 @@ function App() {
       // Update the user document to make them an active driver
       if (status === 'approved' && app.uid) {
         const userRef = doc(db, 'users', app.uid);
-        await updateDoc(userRef, { status: 'approved', role: 'driver' });
+        await setDoc(userRef, { status: 'approved', role: 'driver' }, { merge: true });
       }
     } catch (error) {
       console.error("Error updating status: ", error);
